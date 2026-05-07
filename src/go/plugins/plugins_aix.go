@@ -15,11 +15,12 @@
 package plugins
 
 import (
+	_ "golang.zabbix.com/agent2/plugins/kernel"
 	_ "golang.zabbix.com/agent2/plugins/log"
 	_ "golang.zabbix.com/agent2/plugins/net/dns"
 	_ "golang.zabbix.com/agent2/plugins/net/tcp"
 	// system/swap omitted on AIX: swap_nix.go uses syscall.Sysinfo which is Linux-only.
-	// Phase 3 (perfstat plugin port) replaces it.
+	// Phase 4 (perfstat plugin port) replaces it.
 	_ "golang.zabbix.com/agent2/plugins/system/uname"
 	_ "golang.zabbix.com/agent2/plugins/system/uptime"
 	_ "golang.zabbix.com/agent2/plugins/system/users"

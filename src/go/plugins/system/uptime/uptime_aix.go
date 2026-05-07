@@ -16,26 +16,48 @@ package uptime
 
 import (
 	"fmt"
-	"os"
-	"syscall"
+	"os/exec"
+	"strings"
 	"time"
 )
 
 // getUptime returns seconds since LPAR boot.
 //
-// On AIX /proc/0 is the kernel scheduler entry; its mtime corresponds to
-// the time the scheduler was started, i.e. boot time. This is an
-// approximation accurate to the second and avoids cgo / libperfstat for
-// the skeleton phase. A perfstat_partition_total based implementation can
-// replace this when the perfstat plugin port lands.
+// AIX has no /proc/stat with btime field. We parse `who -b` output:
+//
+//	   .        system boot May 07 15:57
+//
+// The year is implicit; assume current year (close enough for sub-year
+// uptimes which are the common case). A perfstat-based variant lives in
+// Phase 4 and replaces this once libperfstat bindings land.
 func getUptime() (int, error) {
-	fi, err := os.Stat("/proc/0")
+	out, err := exec.Command("/usr/bin/who", "-b").Output()
 	if err != nil {
-		return 0, fmt.Errorf("Cannot read boot time: %s", err.Error())
+		return 0, fmt.Errorf("Cannot read boot time: %s", err)
 	}
-	st, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok {
-		return 0, fmt.Errorf("Cannot read boot time: stat sys cast failed")
+
+	idx := strings.Index(string(out), "system boot")
+	if idx < 0 {
+		return 0, fmt.Errorf("Cannot read boot time: unexpected who -b output: %q", string(out))
 	}
-	return int(time.Now().Unix() - int64(st.Mtim.Sec)), nil
+	rest := strings.TrimSpace(string(out)[idx+len("system boot"):])
+
+	fields := strings.Fields(rest)
+	if len(fields) < 3 {
+		return 0, fmt.Errorf("Cannot read boot time: short who -b output: %q", rest)
+	}
+	stamp := strings.Join(fields[:3], " ")
+
+	now := time.Now()
+	loc := now.Location()
+
+	t, err := time.ParseInLocation("Jan 02 15:04", stamp, loc)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot parse boot time %q: %s", stamp, err)
+	}
+	t = time.Date(now.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, loc)
+	if t.After(now) {
+		t = t.AddDate(-1, 0, 0)
+	}
+	return int(now.Unix() - t.Unix()), nil
 }
