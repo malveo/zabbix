@@ -40,6 +40,9 @@ export LDFLAGS="-maix64 -L/opt/freeware/lib -Wl,-bbigtoc"
 OPENSSL_PREFIX="${OPENSSL_PREFIX:-/opt/openssl-psk}"
 export CGO_CFLAGS="-maix64 -D_THREAD_SAFE -D_LARGE_FILES -I/opt/freeware/include -I${OPENSSL_PREFIX}/include"
 export CGO_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet -L${OPENSSL_PREFIX}/lib -L/opt/freeware/lib -L/usr/lib"
+# Go 1.16+ refuses -Wl,-bbigtoc as an "invalid" cgo flag because AIX-specific
+# linker options are not in the default allowlist. Whitelist explicitly.
+export CGO_LDFLAGS_ALLOW='-Wl,-bbigtoc|-Wl,-bnoquiet|-Wl,-bnoentry|-Wl,-bgcbypass|-bbigtoc|-bnoquiet'
 export GOOS=aix
 export GOARCH=ppc64
 
