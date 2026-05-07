@@ -1,5 +1,3 @@
-//go:build !windows && !aix
-
 /*
 ** Copyright (C) 2001-2026 Zabbix SIA
 **
@@ -17,9 +15,7 @@
 package vfsfs
 
 import (
-	"bufio"
-	"io"
-	"os"
+	"os/exec"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -80,35 +76,61 @@ func (p *Plugin) getFsInfoStats() (data []*FsInfoNew, err error) {
 	return
 }
 
-func (p *Plugin) readMounts(file io.Reader) (data []*FsInfo, err error) {
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		mnt := strings.Split(line, " ")
-		if len(mnt) < 4 {
-			p.Debugf(`cannot discern the mount in given line: %s`, line)
+// getFsInfo reads /etc/filesystems is rare on AIX; the canonical way to
+// enumerate active mounts is the `mount` command. Output format:
+//
+//	  node       mounted        mounted over    vfs       date        options
+//	  -------- ---------------  ---------------  ------ ------------ -------
+//	           /dev/hd4         /                jfs2   May 07 15:57 rw,log=/dev/hd8
+//	           /dev/hd2         /usr             jfs2   May 07 15:57 rw,log=/dev/hd8
+//
+// Columns are space-separated; the first node column may be empty for
+// local mounts. We split on whitespace and pick by position; the
+// mount-point and vfs type are stable across AIX releases.
+func (p *Plugin) getFsInfo() (data []*FsInfo, err error) {
+	out, err := exec.Command("/usr/sbin/mount").Output()
+	if err != nil {
+		return nil, err
+	}
+
+	for i, line := range strings.Split(string(out), "\n") {
+		// Skip header rows and blank lines.
+		if i < 2 || strings.TrimSpace(line) == "" {
 			continue
 		}
-		data = append(data, &FsInfo{FsName: &mnt[1], FsType: &mnt[2], FsOptions: &mnt[3]})
-	}
 
-	if err = scanner.Err(); err != nil {
-		return nil, err
-	}
+		fields := strings.Fields(line)
+		// Layout: node? device mountpoint vfs date... options
+		// When node is empty (local mount) the first field is the device.
+		var dev, mnt, vfs, opts string
+		switch {
+		case len(fields) >= 5 && strings.HasPrefix(fields[0], "/"):
+			// Local mount: device, mountpoint, vfs, date(3 cols), options
+			dev = fields[0]
+			mnt = fields[1]
+			vfs = fields[2]
+			if len(fields) >= 7 {
+				opts = strings.Join(fields[6:], " ")
+			}
+		case len(fields) >= 6:
+			// Remote mount: node, device, mountpoint, vfs, date(3), options
+			dev = fields[1]
+			mnt = fields[2]
+			vfs = fields[3]
+			if len(fields) >= 8 {
+				opts = strings.Join(fields[7:], " ")
+			}
+		default:
+			continue
+		}
 
-	return
-}
-
-func (p *Plugin) getFsInfo() (data []*FsInfo, err error) {
-	file, err := os.Open("/proc/mounts")
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	data, err = p.readMounts(file)
-	if err != nil {
-		return nil, err
+		_ = dev
+		// Copy strings: FsInfo holds pointers; closure-trap on loop var would
+		// otherwise alias every entry to the same backing storage.
+		mntCopy := mnt
+		vfsCopy := vfs
+		optsCopy := opts
+		data = append(data, &FsInfo{FsName: &mntCopy, FsType: &vfsCopy, FsOptions: &optsCopy})
 	}
 
 	return data, nil
@@ -125,13 +147,13 @@ func getFsStats(path string) (stats *FsStats, err error) {
 
 	var available uint64
 	if fs.Bavail > 0 {
-		available = fs.Bavail
+		available = uint64(fs.Bavail)
 	}
 
-	total := fs.Blocks * uint64(fs.Bsize)
+	total := uint64(fs.Blocks) * uint64(fs.Bsize)
 	free := available * uint64(fs.Bsize)
-	used := (fs.Blocks - fs.Bfree) * uint64(fs.Bsize)
-	pfree := float64(fs.Blocks - fs.Bfree + fs.Bavail)
+	used := (uint64(fs.Blocks) - uint64(fs.Bfree)) * uint64(fs.Bsize)
+	pfree := float64(uint64(fs.Blocks) - uint64(fs.Bfree) + uint64(fs.Bavail))
 
 	if pfree > 0 {
 		pfree = 100.00 * float64(available) / pfree
@@ -161,9 +183,9 @@ func getFsInode(path string) (stats *FsStats, err error) {
 		return nil, err
 	}
 
-	total := fs.Files
-	free := fs.Ffree
-	used := fs.Files - fs.Ffree
+	total := uint64(fs.Files)
+	free := uint64(fs.Ffree)
+	used := total - free
 
 	if 0 < total {
 		pfree = 100 * float64(free) / float64(total)
