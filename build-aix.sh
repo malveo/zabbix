@@ -45,6 +45,13 @@ export CGO_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet -L${OPENSSL_PREFIX}/lib -L/opt/fr
 export CGO_LDFLAGS_ALLOW='-Wl,-bbigtoc|-Wl,-bnoquiet|-Wl,-bnoentry|-Wl,-bgcbypass|-bbigtoc|-bnoquiet'
 export GOOS=aix
 export GOARCH=ppc64
+# Default GOPATH/GOCACHE under $HOME can fill /home (typically 1-4 GB on
+# AIX) — Go module cache + build cache easily exceeds 1 GB. Park them on
+# /tmp which is normally an order of magnitude larger.
+export GOPATH="${GOPATH:-/tmp/dev/gopath}"
+export GOCACHE="${GOCACHE:-/tmp/dev/gocache}"
+export GOMODCACHE="${GOMODCACHE:-${GOPATH}/pkg/mod}"
+mkdir -p "$GOPATH" "$GOCACHE" "$GOMODCACHE"
 
 if [ ! -f configure ]; then
     echo "[*] Bootstrap (autoreconf)"
