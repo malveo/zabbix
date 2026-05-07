@@ -48,7 +48,7 @@ func getFirstNum(key string) (uint64, error) {
 		return uint64(rlim.Max), nil
 
 	case "kernel.openfiles":
-		return 0, zbxerr.ErrorUnsupportedType
+		return 0, zbxerr.ErrorUnsupportedMetric
 	}
 
 	return 0, zbxerr.ErrorUnsupportedMetric
