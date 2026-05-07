@@ -1,4 +1,4 @@
-//go:build !linux && !windows
+//go:build !linux && !windows && !aix
 
 /*
 ** Copyright (C) 2001-2026 Zabbix SIA

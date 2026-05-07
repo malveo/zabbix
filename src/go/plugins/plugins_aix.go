@@ -18,16 +18,22 @@ import (
 	_ "golang.zabbix.com/agent2/plugins/kernel"
 	_ "golang.zabbix.com/agent2/plugins/log"
 	_ "golang.zabbix.com/agent2/plugins/net/dns"
+	_ "golang.zabbix.com/agent2/plugins/net/netif"
 	_ "golang.zabbix.com/agent2/plugins/net/tcp"
 	// system/swap omitted on AIX: swap_nix.go uses syscall.Sysinfo which is Linux-only.
-	// Phase 4 (perfstat plugin port) replaces it.
+	// A perfstat-based replacement is a Phase 5 deliverable.
+	_ "golang.zabbix.com/agent2/plugins/system/cpu"
+	_ "golang.zabbix.com/agent2/plugins/system/hw"
+	_ "golang.zabbix.com/agent2/plugins/system/sw"
 	_ "golang.zabbix.com/agent2/plugins/system/uname"
 	_ "golang.zabbix.com/agent2/plugins/system/uptime"
 	_ "golang.zabbix.com/agent2/plugins/system/users"
 	_ "golang.zabbix.com/agent2/plugins/systemrun"
+	_ "golang.zabbix.com/agent2/plugins/vfs/dev"
 	_ "golang.zabbix.com/agent2/plugins/vfs/dir"
 	_ "golang.zabbix.com/agent2/plugins/vfs/file"
 	_ "golang.zabbix.com/agent2/plugins/vfs/fs"
+	_ "golang.zabbix.com/agent2/plugins/vm/memory"
 	_ "golang.zabbix.com/agent2/plugins/web/certificate"
 	_ "golang.zabbix.com/agent2/plugins/web/page"
 	_ "golang.zabbix.com/agent2/plugins/zabbix/async"
