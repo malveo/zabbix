@@ -38,7 +38,7 @@ const char	*tls_crypto_init_msg;
 
 #if defined(LIBRESSL_VERSION_NUMBER)
 #	error package golang.zabbix.com/agent2/pkg/tls cannot be compiled with LibreSSL. Encryption is supported with OpenSSL.
-#elif !defined(HAVE_OPENSSL_WITH_PSK)
+#elif !defined(HAVE_OPENSSL_WITH_PSK) && !defined(_AIX)
 #	error package golang.zabbix.com/agent2/pkg/tls cannot be compiled with OpenSSL which has excluded PSK support.
 #elif defined(_WINDOWS) && OPENSSL_VERSION_NUMBER < 0x1010100fL	// On MS Windows OpenSSL 1.1.1 is required
 #	error on Microsoft Windows the package golang.zabbix.com/agent2/pkg/tls requires OpenSSL 1.1.1 or newer.
@@ -47,6 +47,10 @@ const char	*tls_crypto_init_msg;
 #	error package golang.zabbix.com/agent2/pkg/tls cannot be compiled with this OpenSSL version.\
 		Supported versions are 1.0.1 and newer.
 #endif
+
+// AIX: HAVE_OPENSSL_WITH_PSK is intentionally bypassed above. IBM's
+// OpenSSL 3.0.16 fileset defines OPENSSL_NO_PSK so the configure probe
+// fails. Cert-based TLS still works; PSK runtime paths become no-ops.
 
 #if OPENSSL_VERSION_NUMBER < 0x1010000fL
 	// OpenSSL 1.0.1/1.0.2 (before 1.1.0)
