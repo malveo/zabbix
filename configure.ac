@@ -1224,6 +1224,19 @@ linux*)
 	;;
 aix*)
 	ARCH="aix"
+	AC_DEFINE([HAVE_AIX], 1, [Define to 1 if building for AIX.])
+	dnl Workaround AR Internal error 0707-106 — force 64-bit object mode
+	AR="${AR:-/usr/bin/ar} -X64"
+	export OBJECT_MODE=64
+	dnl Big TOC needed for agent2 monolith (~5500 globals via cgo + zbx libs)
+	dnl Iconv on AIX: use GNU libiconv from /opt/freeware (libiconv_open prefix),
+	dnl forced before /usr/lib to avoid system iconv with mismatched symbols.
+	AGENT2_CFLAGS="-maix64 -D_THREAD_SAFE -D_LARGE_FILES -I/opt/freeware/include"
+	AGENT2_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet"
+	AGENT2_LDFLAGS="$AGENT2_LDFLAGS -L/opt/freeware/lib -L/usr/lib"
+	AGENT2_LDFLAGS="$AGENT2_LDFLAGS -lperfstat -lpthread"
+	AC_SUBST([AGENT2_CFLAGS])
+	AC_SUBST([AGENT2_LDFLAGS])
 	;;
 darwin*|rhapsody*)
 	ARCH="osx"
@@ -1438,6 +1451,7 @@ esac
 ],
 [agent2=no])
 AM_CONDITIONAL(AGENT2, test "x$agent2" = "xyes")
+AM_CONDITIONAL(AIX, test "x$ARCH" = "xaix")
 
 AC_ARG_ENABLE(webservice,[  --enable-webservice         Turn on build of Zabbix web service],
 [case "${enableval}" in

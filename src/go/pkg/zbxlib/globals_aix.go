@@ -41,7 +41,7 @@ package zbxlib
 #cgo LDFLAGS: ${SRCDIR}/../../../libs/zbxsysinfo/aix/libspechostnamesysinfo.a
 #cgo LDFLAGS: ${SRCDIR}/../../../libs/zbxsysinfo/aix/libspecsysinfo.a
 #cgo LDFLAGS: -L/opt/freeware/lib -L/usr/lib
-#cgo LDFLAGS: -lperfstat -lpthread -lz -lresolv
+#cgo LDFLAGS: -lperfstat -lpthread -lz
 #cgo LDFLAGS: /opt/freeware/lib/libiconv.a
 #cgo pcre2 LDFLAGS: -lpcre2-8
 #cgo LDFLAGS: -Wl,-bbigtoc -Wl,-bnoquiet
