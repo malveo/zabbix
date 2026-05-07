@@ -1,4 +1,4 @@
-//go:build integration_tests
+//go:build integration_tests && !aix
 
 /*
 ** Copyright (C) 2001-2026 Zabbix SIA

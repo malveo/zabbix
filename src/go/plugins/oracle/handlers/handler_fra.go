@@ -1,3 +1,5 @@
+//go:build !aix
+
 /*
 ** Copyright (C) 2001-2026 Zabbix SIA
 **
