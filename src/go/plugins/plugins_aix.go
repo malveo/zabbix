@@ -20,6 +20,7 @@ import (
 	_ "golang.zabbix.com/agent2/plugins/net/dns"
 	_ "golang.zabbix.com/agent2/plugins/net/netif"
 	_ "golang.zabbix.com/agent2/plugins/net/tcp"
+	_ "golang.zabbix.com/agent2/plugins/proc"
 	// system/swap omitted on AIX: swap_nix.go uses syscall.Sysinfo which is Linux-only.
 	// A perfstat-based replacement is a Phase 5 deliverable.
 	_ "golang.zabbix.com/agent2/plugins/system/cpu"
