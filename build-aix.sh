@@ -33,8 +33,13 @@ export LDFLAGS="-maix64 -L/opt/freeware/lib -Wl,-bbigtoc"
 
 # CGO needs explicit AIX flags. configure.ac propagates these to Makefile.am
 # but we set them here too for direct go build invocations during development.
-export CGO_CFLAGS="-maix64 -D_THREAD_SAFE -D_LARGE_FILES -I/opt/freeware/include"
-export CGO_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet -L/opt/freeware/lib -L/usr/lib"
+# OpenSSL: IBM's /usr OpenSSL 3.0.16 has OPENSSL_NO_PSK in headers, which
+# breaks pkg/tls (PSK is mandatory). We require a custom OpenSSL build at
+# /opt/openssl-psk (built once with: ./Configure aix64-gcc no-shared
+# --prefix=/opt/openssl-psk && gmake && gmake install_sw).
+OPENSSL_PREFIX="${OPENSSL_PREFIX:-/opt/openssl-psk}"
+export CGO_CFLAGS="-maix64 -D_THREAD_SAFE -D_LARGE_FILES -I/opt/freeware/include -I${OPENSSL_PREFIX}/include"
+export CGO_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet -L${OPENSSL_PREFIX}/lib -L/opt/freeware/lib -L/usr/lib"
 export GOOS=aix
 export GOARCH=ppc64
 
@@ -47,7 +52,7 @@ echo "[*] Configure"
 ./configure \
     --enable-agent2 \
     --prefix=/opt/zabbix \
-    --with-openssl=/usr \
+    --with-openssl="${OPENSSL_PREFIX}" \
     --with-libpcre2=/opt/freeware
 
 echo "[*] Build"
