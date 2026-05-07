@@ -21,8 +21,15 @@ export AR="/usr/bin/ar -X64"
 # /opt/freeware (AIX Toolbox) ships GNU coreutils with %_d date, GNU make,
 # pkg-config, and libiconv with libiconv_* prefixed symbols. PATH ordering
 # matters: AIX system /usr/bin must come AFTER for libiconv to resolve.
-export PATH=/opt/freeware/bin:/usr/bin:/usr/sbin:$PATH
+# Go toolchain in /tmp/dev/go/bin is convention for the LAB4 setup.
+export PATH=/opt/freeware/bin:/tmp/dev/go/bin:/usr/bin:/usr/sbin:$PATH
 export PKG_CONFIG_PATH=/opt/freeware/lib/pkgconfig
+
+# Force 64-bit C build: AIX gcc defaults to 32-bit XCOFF objects unless
+# -maix64 is explicit. This must be in CFLAGS (not just CGO_CFLAGS) so
+# that the C-side .a archives are 64-bit and match the Go binary.
+export CFLAGS="-maix64 -O2"
+export LDFLAGS="-maix64 -L/opt/freeware/lib -Wl,-bbigtoc"
 
 # CGO needs explicit AIX flags. configure.ac propagates these to Makefile.am
 # but we set them here too for direct go build invocations during development.
