@@ -3,13 +3,19 @@
 EXTRA_DIST = .
 
 BUILD_TIME=`date +%H:%M:%S`
-BUILD_DATE=`date +"%b %_d %Y"`
+# %_d (space-padded day) is a GNU extension, missing in AIX /usr/bin/date.
+# Use %d (zero-padded) for portability; build-aix.sh prepends /opt/freeware/bin
+# but we cannot rely on PATH ordering when configure invokes shell directly.
+BUILD_DATE=`date +"%b %d %Y"`
 GOOS=`go env GOOS`
 GOARCH=`go env GOARCH`
 PKG=golang.zabbix.com/agent2/pkg/version
 NEW_FROM_REV=""
 
-GOLDFLAGS = -X '${PKG}.compileDate=${BUILD_DATE}'
+# Use double quotes for -X args: AIX /bin/sh handles single-quoted ${VAR}
+# expansion differently when the rule is invoked via "sh -c", causing the
+# linker to receive "'-X' VAR=VAL" as 3 separate tokens (forum bug #411588).
+GOLDFLAGS = -X "${PKG}.compileDate=${BUILD_DATE}"
 GOLDFLAGS += -X ${PKG}.compileTime=${BUILD_TIME}
 GOLDFLAGS += -X ${PKG}.compileOs=${GOOS}
 GOLDFLAGS += -X ${PKG}.compileArch=${GOARCH}
@@ -23,6 +29,17 @@ WEBSERVICE_GOLDFLAGS += -X main.applicationName=zabbix_web_service
 
 if HAVE_PCRE2
 AGENT_GOTAGS = pcre2
+endif
+
+# AIX requires bigtoc (TOC overflow), -X64 ar mode (avoid 0707-106), and
+# explicit lookup paths for /opt/freeware libs (libiconv, libpcre2, etc.).
+# AGENT2_{CFLAGS,LDFLAGS} are populated by configure.ac in the aix* branch.
+if AIX
+AIX_CGO_CFLAGS = @AGENT2_CFLAGS@
+AIX_CGO_LDFLAGS = @AGENT2_LDFLAGS@
+else
+AIX_CGO_CFLAGS =
+AIX_CGO_LDFLAGS =
 endif
 
 dist_sysconf_DATA =
@@ -44,7 +61,7 @@ endif
 all: build
 
 bin/zabbix_agent2: FORCE
-	CGO_CFLAGS="${CGO_CFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" \
+	CGO_CFLAGS="${CGO_CFLAGS} ${AIX_CGO_CFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS} ${AIX_CGO_LDFLAGS}" \
 		$(GO) build \
 		-tags="${AGENT_GOTAGS}" \
 		-ldflags="${AGENT_GOLDFLAGS}" \
