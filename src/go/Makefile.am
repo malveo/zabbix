@@ -2,20 +2,22 @@
 
 EXTRA_DIST = .
 
-BUILD_TIME=`date +%H:%M:%S`
-# %_d (space-padded day) is a GNU extension, missing in AIX /usr/bin/date.
-# Use %d (zero-padded) for portability; build-aix.sh prepends /opt/freeware/bin
-# but we cannot rely on PATH ordering when configure invokes shell directly.
-BUILD_DATE=`date +"%b %d %Y"`
-GOOS=`go env GOOS`
-GOARCH=`go env GOARCH`
+# Use $(shell ...) (Make-time expansion) instead of backticks (shell-time).
+# Two reasons:
+# 1. AIX /usr/bin/date does not understand the GNU %_d (space-padded day);
+#    use %d and replace the leading zero with a space to mimic %_d output.
+# 2. Backticks inside shell-quoted -ldflags arguments parse inconsistently
+#    on AIX /bin/sh — see Zabbix forum thread #411588 (2020). Pre-expanding
+#    via $(shell) sidesteps the issue entirely: the recipe receives plain
+#    text values, not nested shell substitutions.
+BUILD_TIME := $(shell date +%H:%M:%S)
+BUILD_DATE := $(shell date +"%b %d %Y" | sed 's/ 0/  /')
+GOOS := $(shell go env GOOS)
+GOARCH := $(shell go env GOARCH)
 PKG=golang.zabbix.com/agent2/pkg/version
 NEW_FROM_REV=""
 
-# Use double quotes for -X args: AIX /bin/sh handles single-quoted ${VAR}
-# expansion differently when the rule is invoked via "sh -c", causing the
-# linker to receive "'-X' VAR=VAL" as 3 separate tokens (forum bug #411588).
-GOLDFLAGS = -X "${PKG}.compileDate=${BUILD_DATE}"
+GOLDFLAGS = -X '${PKG}.compileDate=${BUILD_DATE}'
 GOLDFLAGS += -X ${PKG}.compileTime=${BUILD_TIME}
 GOLDFLAGS += -X ${PKG}.compileOs=${GOOS}
 GOLDFLAGS += -X ${PKG}.compileArch=${GOARCH}
