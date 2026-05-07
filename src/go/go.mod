@@ -23,6 +23,7 @@ require (
 	github.com/memcachier/mc/v3 v3.0.3
 	github.com/miekg/dns v1.1.55
 	github.com/omeid/go-yarn v0.0.1
+	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55
 	github.com/sokurenko/go-netstat v1.0.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/net v0.44.0
