@@ -26,7 +26,10 @@ int	system_boottime(AGENT_REQUEST *request, AGENT_RESULT *result);
 int	net_tcp_listen(AGENT_REQUEST *request, AGENT_RESULT *result);
 int	net_udp_listen(AGENT_REQUEST *request, AGENT_RESULT *result);
 int	system_cpu_load(AGENT_REQUEST *request, AGENT_RESULT *result);
+int	system_cpu_intr(AGENT_REQUEST *request, AGENT_RESULT *result);
+int	system_cpu_switches(AGENT_REQUEST *request, AGENT_RESULT *result);
 int	system_users_num(AGENT_REQUEST *request, AGENT_RESULT *result);
+int	system_stat(AGENT_REQUEST *request, AGENT_RESULT *result);
 int	vfs_dir_get(AGENT_REQUEST *request, AGENT_RESULT *result);
 int	vfs_fs_discovery(AGENT_REQUEST *request, AGENT_RESULT *result);
 int	vfs_fs_inode(AGENT_REQUEST *request, AGENT_RESULT *result);
@@ -53,8 +56,14 @@ func resolveMetric(key string) (cfunc unsafe.Pointer) {
 		return unsafe.Pointer(C.net_udp_listen)
 	case "system.cpu.load":
 		return unsafe.Pointer(C.system_cpu_load)
+	case "system.cpu.intr":
+		return unsafe.Pointer(C.system_cpu_intr)
+	case "system.cpu.switches":
+		return unsafe.Pointer(C.system_cpu_switches)
 	case "system.users.num":
 		return unsafe.Pointer(C.system_users_num)
+	case "system.stat":
+		return unsafe.Pointer(C.system_stat)
 	case "vfs.dir.get":
 		return unsafe.Pointer(C.vfs_dir_get)
 	case "vfs.fs.discovery":

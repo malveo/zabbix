@@ -1,5 +1,3 @@
-//go:build !windows && !aix
-
 /*
 ** Copyright (C) 2001-2026 Zabbix SIA
 **
@@ -16,17 +14,23 @@
 
 package zabbixasync
 
+// AIX exposes additional system.* metric keys not present on other
+// Unix platforms — primarily system.stat[*] (vmstat-style counters)
+// served by the C-bridge libspecsysinfo.a. The official "AIX by
+// Zabbix agent" template is built around them. Drop the Linux-only
+// "sensor" key (no hwmon on AIX) and add system.stat.
+//
+// All metric keys here resolve through ExecuteCheck → resolveMetric
+// in pkg/zbxlib/checks_aix.go, which dispatches the cgo call.
 func getMetrics() []string {
 	return []string{
 		"system.localtime", "Returns system local time.",
 		"system.boottime", "Returns system boot time.",
 		"net.tcp.listen", "Checks if this TCP port is in LISTEN state.",
 		"net.udp.listen", "Checks if this UDP port is in LISTEN state.",
-		"sensor", "Hardware sensor reading.",
 		"system.cpu.load", "CPU load.",
 		"system.cpu.switches", "Count of context switches.",
 		"system.cpu.intr", "Device interrupts.",
-		"system.hw.cpu", "CPU information.",
-		"system.hw.macaddr", "Listing of MAC addresses.",
+		"system.stat", "Virtual memory statistics (vmstat).",
 	}
 }
