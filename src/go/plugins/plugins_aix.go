@@ -24,7 +24,10 @@ import (
 	_ "golang.zabbix.com/agent2/plugins/kernel"
 	_ "golang.zabbix.com/agent2/plugins/log"
 	_ "golang.zabbix.com/agent2/plugins/memcached"
-	_ "golang.zabbix.com/agent2/plugins/modbus"
+	// modbus omitted: depends on github.com/goburrow/serial whose POSIX
+	// New() implementation excludes AIX (build tag "darwin linux freebsd
+	// openbsd netbsd"). Re-enable when the upstream serial package
+	// gains AIX support or with a forked replacement.
 	_ "golang.zabbix.com/agent2/plugins/mqtt"
 	_ "golang.zabbix.com/agent2/plugins/mysql"
 	_ "golang.zabbix.com/agent2/plugins/net/dns"

@@ -43,7 +43,7 @@ func init() {
 // spaces); pages/sectors return 0.
 
 func getSwapSize() (total, free uint64, err error) {
-	pgs, perr := perfstat.PagingSpaces()
+	pgs, perr := perfstat.PagingSpaceStat()
 	if perr != nil {
 		return 0, 0, perr
 	}
@@ -63,7 +63,7 @@ func getSwapSize() (total, free uint64, err error) {
 // it as the "count" mode. Pages/sectors fall back to zero so the item
 // returns a value rather than ZBX_NOTSUPPORTED.
 func getSwapStats(swapdev string) (io, sect, pag uint64, err error) {
-	pgs, perr := perfstat.PagingSpaces()
+	pgs, perr := perfstat.PagingSpaceStat()
 	if perr != nil {
 		return 0, 0, 0, perr
 	}
