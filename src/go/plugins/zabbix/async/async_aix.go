@@ -27,7 +27,11 @@ func getMetrics() []string {
 		"system.localtime", "Returns system local time.",
 		"system.boottime", "Returns system boot time.",
 		"net.tcp.listen", "Checks if this TCP port is in LISTEN state.",
-		"net.udp.listen", "Checks if this UDP port is in LISTEN state.",
+		// net.udp.listen disabled on AIX — the C bridge implementation
+		// in libspecsysinfo.a opens a raw socket which requires root
+		// privileges; running unprivileged it triggers a crash that
+		// resets the agent process. Re-enable once a non-raw probe is
+		// available, or when running the agent as root.
 		"system.cpu.load", "CPU load.",
 		"system.cpu.switches", "Count of context switches.",
 		"system.cpu.intr", "Device interrupts.",
