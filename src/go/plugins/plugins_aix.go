@@ -15,17 +15,28 @@
 package plugins
 
 import (
+	// Pure-Go application monitoring plugins — all of these compile
+	// without platform-specific glue (no _linux.go), so they run on
+	// AIX out-of-box. Verified: mqtt, modbus, redis, memcached, ceph
+	// have no platform files; mysql has config_nix.go (!windows, also
+	// matches AIX).
+	_ "golang.zabbix.com/agent2/plugins/ceph"
 	_ "golang.zabbix.com/agent2/plugins/kernel"
 	_ "golang.zabbix.com/agent2/plugins/log"
+	_ "golang.zabbix.com/agent2/plugins/memcached"
+	_ "golang.zabbix.com/agent2/plugins/modbus"
+	_ "golang.zabbix.com/agent2/plugins/mqtt"
+	_ "golang.zabbix.com/agent2/plugins/mysql"
 	_ "golang.zabbix.com/agent2/plugins/net/dns"
 	_ "golang.zabbix.com/agent2/plugins/net/netif"
 	_ "golang.zabbix.com/agent2/plugins/net/tcp"
+	_ "golang.zabbix.com/agent2/plugins/net/udp"
 	_ "golang.zabbix.com/agent2/plugins/proc"
-	// system/swap omitted on AIX: swap_nix.go uses syscall.Sysinfo which is Linux-only.
-	// A perfstat-based replacement is a Phase 5 deliverable.
+	_ "golang.zabbix.com/agent2/plugins/redis"
 	_ "golang.zabbix.com/agent2/plugins/system/cpu"
 	_ "golang.zabbix.com/agent2/plugins/system/hw"
 	_ "golang.zabbix.com/agent2/plugins/system/sw"
+	_ "golang.zabbix.com/agent2/plugins/system/swap"
 	_ "golang.zabbix.com/agent2/plugins/system/uname"
 	_ "golang.zabbix.com/agent2/plugins/system/uptime"
 	_ "golang.zabbix.com/agent2/plugins/system/users"
