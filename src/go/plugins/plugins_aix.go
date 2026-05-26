@@ -34,6 +34,9 @@ import (
 	_ "golang.zabbix.com/agent2/plugins/net/netif"
 	_ "golang.zabbix.com/agent2/plugins/net/tcp"
 	_ "golang.zabbix.com/agent2/plugins/net/udp"
+	// Oracle plugin requires Oracle Instant Client 19.x at
+	// /opt/oracle/instantclient_19_30 (Basic + SDK). See INSTALL_AIX.md.
+	_ "golang.zabbix.com/agent2/plugins/oracle"
 	_ "golang.zabbix.com/agent2/plugins/proc"
 	_ "golang.zabbix.com/agent2/plugins/redis"
 	_ "golang.zabbix.com/agent2/plugins/system/cpu"
