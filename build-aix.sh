@@ -38,8 +38,12 @@ export LDFLAGS="-maix64 -L/opt/freeware/lib -Wl,-bbigtoc"
 # /opt/openssl-psk (built once with: ./Configure aix64-gcc no-shared
 # --prefix=/opt/openssl-psk && gmake && gmake install_sw).
 OPENSSL_PREFIX="${OPENSSL_PREFIX:-/opt/openssl-psk}"
-export CGO_CFLAGS="-maix64 -D_THREAD_SAFE -D_LARGE_FILES -I/opt/freeware/include -I${OPENSSL_PREFIX}/include"
-export CGO_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet -L${OPENSSL_PREFIX}/lib -L/opt/freeware/lib -L/usr/lib"
+# Oracle Instant Client 19.x: Basic (libclntsh.so) + SDK (oci.h) required
+# by plugins/oracle via godror. Set ORACLE_HOME=skip or unset
+# ICR_PREFIX to disable oracle plugin at build time (rare).
+ICR_PREFIX="${ICR_PREFIX:-/opt/oracle/instantclient_19_30}"
+export CGO_CFLAGS="-maix64 -D_THREAD_SAFE -D_LARGE_FILES -I/opt/freeware/include -I${OPENSSL_PREFIX}/include -I${ICR_PREFIX}/sdk/include"
+export CGO_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet -L${OPENSSL_PREFIX}/lib -L${ICR_PREFIX} -L/opt/freeware/lib -L/usr/lib"
 # Go 1.16+ refuses -Wl,-bbigtoc as an "invalid" cgo flag because AIX-specific
 # linker options are not in the default allowlist. Whitelist explicitly.
 export CGO_LDFLAGS_ALLOW='-Wl,-bbigtoc|-Wl,-bnoquiet|-Wl,-bnoentry|-Wl,-bgcbypass|-bbigtoc|-bnoquiet'
