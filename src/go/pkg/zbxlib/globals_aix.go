@@ -80,19 +80,12 @@ char	*zbx_strerror_from_system(zbx_syserror_t error)
 	return zbx_strerror(errno);
 }
 
-/* AIX vmstat collector bootstrap.
- *
- * The classic C agent (zabbix_agentd) starts a dedicated collector
- * thread at boot that periodically calls collect_vmstat_data() and
- * keeps the shared-memory zbx_collector_data.vmstat fresh. system_stat()
- * then reads from that struct without recomputing.
- *
- * Agent2 (Go scheduler) does not have that thread, so every call to
- * system.stat[*] hits "Collector is not started." We bootstrap the
- * same collector ourselves: zbx_init_collector_data() allocates the
- * shared-mem block (returns NULL if not initialized) and a small
- * pthread loop in C refreshes vmstat every second.
- */
+// AIX vmstat collector bootstrap.
+// Classic agentd spawns a dedicated thread that calls collect_vmstat_data
+// every second; agent2 has no such thread so system_stat() in
+// libspecsysinfo.a sees a NULL collector and returns
+// "Collector is not started." for every system.stat[*] key.
+// We replicate that loop here.
 #include <pthread.h>
 #include <unistd.h>
 #include "stats.h"
@@ -109,8 +102,8 @@ static void *zbxaix_vmstat_loop(void *arg)
 		c = get_collector();
 		if (NULL != c)
 		{
-			/* enabled flag is what system_stat() flips on first call;
-			 * collect unconditionally so data is fresh on first read */
+			// enabled flag is what system_stat() flips on first call;
+			// collect unconditionally so data is fresh on first read.
 			c->vmstat.enabled = 1;
 			collect_vmstat_data(&c->vmstat);
 			c->vmstat.data_available = 1;
