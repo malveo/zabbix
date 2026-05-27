@@ -80,5 +80,75 @@ char	*zbx_strerror_from_system(zbx_syserror_t error)
 	return zbx_strerror(errno);
 }
 
+/* AIX vmstat collector bootstrap.
+ *
+ * The classic C agent (zabbix_agentd) starts a dedicated collector
+ * thread at boot that periodically calls collect_vmstat_data() and
+ * keeps the shared-memory zbx_collector_data.vmstat fresh. system_stat()
+ * then reads from that struct without recomputing.
+ *
+ * Agent2 (Go scheduler) does not have that thread, so every call to
+ * system.stat[*] hits "Collector is not started." We bootstrap the
+ * same collector ourselves: zbx_init_collector_data() allocates the
+ * shared-mem block (returns NULL if not initialized) and a small
+ * pthread loop in C refreshes vmstat every second.
+ */
+#include <pthread.h>
+#include <unistd.h>
+#include "stats.h"
+
+extern void collect_vmstat_data(ZBX_VMSTAT_DATA *vmstat);
+
+static void *zbxaix_vmstat_loop(void *arg)
+{
+	zbx_collector_data	*c;
+
+	(void)arg;
+	while (1)
+	{
+		c = get_collector();
+		if (NULL != c)
+		{
+			/* enabled flag is what system_stat() flips on first call;
+			 * collect unconditionally so data is fresh on first read */
+			c->vmstat.enabled = 1;
+			collect_vmstat_data(&c->vmstat);
+			c->vmstat.data_available = 1;
+		}
+		sleep(1);
+	}
+	return NULL;
+}
+
+int	zbxaix_start_collector(void)
+{
+	char		*err = NULL;
+	pthread_t	t;
+	pthread_attr_t	attr;
+
+	if (SUCCEED != zbx_init_collector_data(&err))
+	{
+		if (NULL != err) zbx_free(err);
+		return -1;
+	}
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	if (0 != pthread_create(&t, &attr, zbxaix_vmstat_loop, NULL))
+	{
+		pthread_attr_destroy(&attr);
+		return -2;
+	}
+	pthread_attr_destroy(&attr);
+	return 0;
+}
+
 */
 import "C"
+
+// StartAIXCollector boots the libperfstat-based vmstat collector that
+// system.stat[*] keys read from. Returns 0 on success, negative on
+// failure (typically shared-memory exhaustion or pthread refusal).
+// Safe to call once at agent startup; idempotent calls would leak.
+func StartAIXCollector() int {
+	return int(C.zbxaix_start_collector())
+}
