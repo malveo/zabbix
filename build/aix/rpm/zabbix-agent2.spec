@@ -48,11 +48,14 @@ export PATH=/opt/freeware/bin:/usr/bin:/usr/sbin:$PATH
 bash build-aix.sh
 
 %install
+# AIX system /usr/bin/install does not accept -d (System V variant).
+# Pull GNU coreutils install from /opt/freeware/bin first.
+export PATH=/opt/freeware/bin:$PATH
 rm -rf %{buildroot}
-install -d %{buildroot}%{_sbindir}
-install -d %{buildroot}%{_sysconfdir}/zabbix_agent2.d/plugins.d
-install -d %{buildroot}/etc/rc.d/init.d
-install -d %{buildroot}%{_datadir}/doc
+mkdir -p %{buildroot}%{_sbindir}
+mkdir -p %{buildroot}%{_sysconfdir}/zabbix_agent2.d/plugins.d
+mkdir -p %{buildroot}/etc/rc.d/init.d
+mkdir -p %{buildroot}%{_datadir}/doc
 
 # Binary — note that build-aix.sh emits to src/go/bin (a file, not a
 # directory) on first run; both names are handled.
