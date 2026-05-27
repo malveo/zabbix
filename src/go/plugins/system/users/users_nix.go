@@ -18,6 +18,7 @@ package users
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.zabbix.com/agent2/pkg/zbxcmd"
@@ -39,5 +40,7 @@ func (p *Plugin) getUsersNum(timeout int) (int, error) {
 		return 0, errs.Wrap(err, "failed to execute command")
 	}
 
-	return strconv.Atoi(out)
+	// AIX `wc -l` pads output with leading spaces (e.g. "       2"),
+	// which strconv.Atoi rejects. Trim before parsing.
+	return strconv.Atoi(strings.TrimSpace(out))
 }
