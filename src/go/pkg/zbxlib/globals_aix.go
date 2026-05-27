@@ -15,6 +15,7 @@
 package zbxlib
 
 /*
+#cgo CFLAGS: -I${SRCDIR}/../../../libs/zbxsysinfo/common
 #cgo LDFLAGS: ${SRCDIR}/../../../zabbix_agent/logfiles/libzbxlogfiles.a
 #cgo LDFLAGS: ${SRCDIR}/../../../libs/zbxnum/libzbxnum.a
 #cgo LDFLAGS: ${SRCDIR}/../../../libs/zbxstr/libzbxstr.a
