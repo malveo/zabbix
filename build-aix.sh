@@ -49,6 +49,14 @@ export CGO_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet -L${OPENSSL_PREFIX}/lib -L${ICR_P
 export CGO_LDFLAGS_ALLOW='-Wl,-bbigtoc|-Wl,-bnoquiet|-Wl,-bnoentry|-Wl,-bgcbypass|-bbigtoc|-bnoquiet'
 export GOOS=aix
 export GOARCH=ppc64
+
+# Runtime library search path. AIX resolves shared symbols from .so
+# members of .a archives via LIBPATH at exec time. /opt/openssl-psk
+# MUST precede /usr/lib so the custom OpenSSL (PSK-enabled, built
+# shared in Phase 9) wins over IBM's /usr/lib/libssl.a — otherwise
+# the daemon aborts at TLS_method() with
+# "cannot initialize default TLS context: ... no cipher match".
+export LIBPATH="/opt/openssl-psk/lib:/opt/freeware/lib:${ICR_PREFIX}:/usr/lib"
 # Default GOPATH/GOCACHE under $HOME can fill /home (typically 1-4 GB on
 # AIX) — Go module cache + build cache easily exceeds 1 GB. Park them on
 # /tmp which is normally an order of magnitude larger.
