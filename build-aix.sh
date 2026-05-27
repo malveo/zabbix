@@ -2,80 +2,54 @@
 #
 # Build Zabbix Agent 2 on IBM AIX 7.2/7.3 ppc64.
 #
-# Prerequisites (install via dnf from the AIX Toolbox):
-#   - gcc 13+, gnu-make, pkgconf, pcre2-devel
-#   - openssl.base from IBM AIX filesets (headers in /usr/include/openssl/)
-#   - GNU libiconv from /opt/freeware (NOT the AIX system libiconv in /usr/lib)
-#   - Go toolchain for aix/ppc64 (download from https://go.dev/dl/)
+# Most of the AIX build configuration lives in configure.ac (aix* branch)
+# and src/go/Makefile.am (if AIX block). This script only carries
+# context that cannot be expressed in autoconf:
 #
-# This script is intentionally simple: it sets the AIX-specific environment
-# (OBJECT_MODE, ar -X64, bigtoc) then runs the standard autotools flow.
+#   * shell PATH ordering — Make cannot reorder the user's PATH before
+#     ./configure runs, and GNU make/coreutils from /opt/freeware/bin
+#     must win over the AIX defaults so $(shell ...) in Makefile.am
+#     behaves like Linux.
+#   * GOPATH / GOCACHE redirection — /home is typically 1–4 GB on AIX
+#     and exhausts mid-build; park them under /tmp instead.
+#   * pkg-config search path.
+#
+# Prerequisites (install once per host via dnf from the AIX Toolbox):
+#   gcc 13+, make, pkg-config, pcre2-devel, autoconf, automake,
+#   libtool, m4, perl, curl, rsync, git, unzip, libzstd.
+# Plus:
+#   * Go toolchain for aix/ppc64 at /tmp/dev/go (download from go.dev/dl/)
+#   * Custom OpenSSL 3.5.6 with PSK at /opt/openssl-psk (see INSTALL_AIX.md)
+#   * Oracle Instant Client 19.30 at /opt/oracle/instantclient_19_30
 #
 set -euo pipefail
 
-# 64-bit object mode is required: AIX ar 0707-106 errors stem from mixing
-# 32/64-bit objects. Forcing the mode globally avoids the issue.
-export OBJECT_MODE=64
-export AR="/usr/bin/ar -X64"
-
-# /opt/freeware (AIX Toolbox) ships GNU coreutils with %_d date, GNU make,
-# pkg-config, and libiconv with libiconv_* prefixed symbols. PATH ordering
-# matters: AIX system /usr/bin must come AFTER for libiconv to resolve.
-# Go toolchain in /tmp/dev/go/bin is convention for the LAB4 setup.
+# GNU tools first, Go toolchain reachable.
 export PATH=/opt/freeware/bin:/tmp/dev/go/bin:/usr/bin:/usr/sbin:$PATH
 export PKG_CONFIG_PATH=/opt/freeware/lib/pkgconfig
 
-# Force 64-bit C build: AIX gcc defaults to 32-bit XCOFF objects unless
-# -maix64 is explicit. This must be in CFLAGS (not just CGO_CFLAGS) so
-# that the C-side .a archives are 64-bit and match the Go binary.
-export CFLAGS="-maix64 -O2"
-export LDFLAGS="-maix64 -L/opt/openssl-psk/lib -L/opt/freeware/lib -Wl,-bbigtoc"
-
-# CGO needs explicit AIX flags. configure.ac propagates these to Makefile.am
-# but we set them here too for direct go build invocations during development.
-# OpenSSL: IBM's /usr OpenSSL 3.0.16 has OPENSSL_NO_PSK in headers, which
-# breaks pkg/tls (PSK is mandatory). We require a custom OpenSSL build at
-# /opt/openssl-psk (built once with: ./Configure aix64-gcc no-shared
-# --prefix=/opt/openssl-psk && gmake && gmake install_sw).
-OPENSSL_PREFIX="${OPENSSL_PREFIX:-/opt/openssl-psk}"
-# Oracle Instant Client 19.x: Basic (libclntsh.so) + SDK (oci.h) required
-# by plugins/oracle via godror. Set ORACLE_HOME=skip or unset
-# ICR_PREFIX to disable oracle plugin at build time (rare).
-ICR_PREFIX="${ICR_PREFIX:-/opt/oracle/instantclient_19_30}"
-export CGO_CFLAGS="-maix64 -D_THREAD_SAFE -D_LARGE_FILES -I/opt/freeware/include -I${OPENSSL_PREFIX}/include -I${ICR_PREFIX}/sdk/include"
-export CGO_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet -L${OPENSSL_PREFIX}/lib -L${ICR_PREFIX} -L/opt/freeware/lib -L/usr/lib"
-# Go 1.16+ refuses -Wl,-bbigtoc as an "invalid" cgo flag because AIX-specific
-# linker options are not in the default allowlist. Whitelist explicitly.
-export CGO_LDFLAGS_ALLOW='-Wl,-bbigtoc|-Wl,-bnoquiet|-Wl,-bnoentry|-Wl,-bgcbypass|-bbigtoc|-bnoquiet'
-export GOOS=aix
-export GOARCH=ppc64
-
-# Runtime library search path. AIX resolves shared symbols from .so
-# members of .a archives via LIBPATH at exec time. /opt/openssl-psk
-# MUST precede /usr/lib so the custom OpenSSL (PSK-enabled, built
-# shared in Phase 9) wins over IBM's /usr/lib/libssl.a — otherwise
-# the daemon aborts at TLS_method() with
-# "cannot initialize default TLS context: ... no cipher match".
-export LIBPATH="/opt/openssl-psk/lib:/opt/freeware/lib:${ICR_PREFIX}:/usr/lib"
-# Default GOPATH/GOCACHE under $HOME can fill /home (typically 1-4 GB on
-# AIX) — Go module cache + build cache easily exceeds 1 GB. Park them on
-# /tmp which is normally an order of magnitude larger.
+# Park Go state on /tmp (LAB hosts have small /home filesystems).
 export GOPATH="${GOPATH:-/tmp/dev/gopath}"
 export GOCACHE="${GOCACHE:-/tmp/dev/gocache}"
 export GOMODCACHE="${GOMODCACHE:-${GOPATH}/pkg/mod}"
 mkdir -p "$GOPATH" "$GOCACHE" "$GOMODCACHE"
 
+# Generate configure if absent.
 if [ ! -f configure ]; then
     echo "[*] Bootstrap (autoreconf)"
     ./bootstrap.sh
 fi
 
+# Configure. CFLAGS, LDFLAGS, CGO_*, AR, OBJECT_MODE, GOOS, GOARCH,
+# CGO_LDFLAGS_ALLOW are all set inside configure.ac (aix* branch) and
+# propagated via @AGENT2_*@ Make substitutions.
 echo "[*] Configure"
 ./configure \
     --enable-agent2 \
     --prefix=/opt/zabbix \
-    --with-openssl="${OPENSSL_PREFIX}" \
-    --with-libpcre2=/opt/freeware
+    --with-openssl="${OPENSSL_PREFIX:-/opt/openssl-psk}" \
+    --with-libpcre2=/opt/freeware \
+    --with-oracle-icr="${ICR_PREFIX:-/opt/oracle/instantclient_19_30}"
 
 echo "[*] Build"
 gmake -j2

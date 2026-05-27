@@ -35,10 +35,16 @@ endif
 
 # AIX requires bigtoc (TOC overflow), -X64 ar mode (avoid 0707-106), and
 # explicit lookup paths for /opt/freeware libs (libiconv, libpcre2, etc.).
-# AGENT2_{CFLAGS,LDFLAGS} are populated by configure.ac in the aix* branch.
+# AGENT2_{CFLAGS,LDFLAGS,CGO_LDFLAGS_ALLOW} are populated by configure.ac
+# in the aix* branch.
 if AIX
 AIX_CGO_CFLAGS = @AGENT2_CFLAGS@
 AIX_CGO_LDFLAGS = @AGENT2_LDFLAGS@
+# Cross-compile the agent2 binary explicitly for aix/ppc64 and whitelist
+# the AIX-specific linker flags Go's cgo would otherwise reject.
+export GOOS = aix
+export GOARCH = ppc64
+export CGO_LDFLAGS_ALLOW = @AGENT2_CGO_LDFLAGS_ALLOW@
 else
 AIX_CGO_CFLAGS =
 AIX_CGO_LDFLAGS =
@@ -62,7 +68,11 @@ endif
 
 all: build
 
-bin/zabbix_agent2: FORCE
+vendor: go.mod go.sum
+	$(GO) mod download
+	$(GO) mod vendor
+
+bin/zabbix_agent2: vendor FORCE
 	CGO_CFLAGS="${CGO_CFLAGS} ${AIX_CGO_CFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS} ${AIX_CGO_LDFLAGS}" \
 		$(GO) build \
 		-tags="${AGENT_GOTAGS}" \
