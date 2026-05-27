@@ -126,12 +126,15 @@ int	zbxaix_start_collector(void)
 		if (NULL != err) zbx_free(err);
 		return -1;
 	}
-	// Synchronous first collect so test-mode invocations and daemons
-	// that read immediately after start get values instead of zeros.
+	// update_vmstat() in vmstats.c only saves a baseline on the first
+	// call and emits deltas on the second. Prime it twice with a 1s
+	// gap so test-mode (single -t invocation) sees non-zero values.
 	c = get_collector();
 	if (NULL != c)
 	{
 		c->vmstat.enabled = 1;
+		collect_vmstat_data(&c->vmstat);
+		sleep(1);
 		collect_vmstat_data(&c->vmstat);
 		c->vmstat.data_available = 1;
 	}
