@@ -1,5 +1,5 @@
-//go:build (windows && 386) || darwin
-// +build windows,386 darwin
+//go:build (windows && 386) || darwin || aix
+// +build windows,386 darwin aix
 
 /*
 ** Copyright (C) 2001-2026 Zabbix SIA

@@ -1,0 +1,64 @@
+name: AIX Readiness
+
+on:
+  push:
+    branches:
+      - feature/aix-support
+      - 'feat/aix-*'
+  pull_request:
+    branches:
+      - feature/aix-support
+
+# All inputs in this workflow come from the checked-out repo only.
+# We do not consume any github.event.* fields, so the standard
+# command-injection guard against untrusted PR titles/branches does
+# not apply here.
+
+jobs:
+  vet-aix:
+    name: go vet (GOOS=aix)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: src/go/go.sum
+
+      - name: vet AIX-targetable packages
+        working-directory: src/go
+        env:
+          GOOS: aix
+          GOARCH: ppc64
+          CGO_ENABLED: '0'
+        run: |
+          # Cross-vet packages that compile pure-Go on AIX. Cgo packages
+          # (pkg/zbxlib, pkg/tls) cannot be vetted off-AIX without the
+          # platform headers — that's an LAB4 build smoke test, not CI.
+          go vet ./plugins/system/uname/... \
+                 ./plugins/system/uptime/... \
+                 ./plugins/system/hw/... \
+                 ./plugins/system/sw/... \
+                 ./plugins/vfs/fs/... \
+                 ./plugins/kernel/... \
+                 ./util/...
+
+  linux-regression:
+    name: Linux build (regression check)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpcre2-dev libssl-dev pkg-config \
+                                  autoconf automake libtool make
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: src/go/go.sum
+      - run: ./bootstrap.sh
+      - run: ./configure --enable-agent2 --with-libpcre2 --with-openssl
+      - run: make -j$(nproc)
+      - name: smoke test linux build
+        run: src/go/bin/zabbix_agent2 -V

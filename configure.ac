@@ -1224,6 +1224,39 @@ linux*)
 	;;
 aix*)
 	ARCH="aix"
+	AC_DEFINE([HAVE_AIX], 1, [Define to 1 if building for AIX.])
+	dnl Workaround AR Internal error 0707-106 — force 64-bit object mode
+	AR="${AR:-/usr/bin/ar} -X64"
+	export OBJECT_MODE=64
+	dnl Custom OpenSSL with PSK (IBM /usr/lib ships OPENSSL_NO_PSK).
+	dnl Override via configure --with-openssl=/opt/openssl-psk (default).
+	OPENSSL_PREFIX_AIX="${OPENSSL_PREFIX_AIX:-/opt/openssl-psk}"
+	dnl Oracle Instant Client (godror cgo prerequisite). Override via
+	dnl ICR_PREFIX env or AC_ARG_WITH below.
+	AC_ARG_WITH([oracle-icr],
+		[AS_HELP_STRING([--with-oracle-icr=DIR],
+			[Oracle Instant Client root on AIX (Basic + SDK), default /opt/oracle/instantclient_19_30])],
+		[ICR_PREFIX="$withval"],
+		[ICR_PREFIX="${ICR_PREFIX:-/opt/oracle/instantclient_19_30}"])
+	dnl Big TOC needed for agent2 monolith (~5500 globals via cgo + zbx libs)
+	dnl Iconv on AIX: use GNU libiconv from /opt/freeware (libiconv_open prefix),
+	dnl forced before /usr/lib to avoid system iconv with mismatched symbols.
+	dnl OpenSSL custom prefix MUST precede /opt/freeware/lib and /usr/lib so
+	dnl libssl.a(libssl.so.3) resolves from /opt/openssl-psk (Phase 9/13 bug).
+	AGENT2_CFLAGS="-maix64 -D_THREAD_SAFE -D_LARGE_FILES"
+	AGENT2_CFLAGS="$AGENT2_CFLAGS -I/opt/freeware/include"
+	AGENT2_CFLAGS="$AGENT2_CFLAGS -I${OPENSSL_PREFIX_AIX}/include"
+	AGENT2_CFLAGS="$AGENT2_CFLAGS -I${ICR_PREFIX}/sdk/include"
+	AGENT2_LDFLAGS="-Wl,-bbigtoc -Wl,-bnoquiet"
+	AGENT2_LDFLAGS="$AGENT2_LDFLAGS -L${OPENSSL_PREFIX_AIX}/lib"
+	AGENT2_LDFLAGS="$AGENT2_LDFLAGS -L${ICR_PREFIX}"
+	AGENT2_LDFLAGS="$AGENT2_LDFLAGS -L/opt/freeware/lib -L/usr/lib"
+	AGENT2_LDFLAGS="$AGENT2_LDFLAGS -lperfstat -lpthread"
+	dnl Go's cgo rejects AIX linker flags unless explicitly whitelisted.
+	AGENT2_CGO_LDFLAGS_ALLOW='-Wl,-bbigtoc|-Wl,-bnoquiet|-Wl,-bnoentry|-Wl,-bgcbypass|-bbigtoc|-bnoquiet'
+	AC_SUBST([AGENT2_CFLAGS])
+	AC_SUBST([AGENT2_LDFLAGS])
+	AC_SUBST([AGENT2_CGO_LDFLAGS_ALLOW])
 	;;
 darwin*|rhapsody*)
 	ARCH="osx"
@@ -1438,6 +1471,7 @@ esac
 ],
 [agent2=no])
 AM_CONDITIONAL(AGENT2, test "x$agent2" = "xyes")
+AM_CONDITIONAL(AIX, test "x$ARCH" = "xaix")
 
 AC_ARG_ENABLE(webservice,[  --enable-webservice         Turn on build of Zabbix web service],
 [case "${enableval}" in
