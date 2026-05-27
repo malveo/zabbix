@@ -59,14 +59,27 @@ cd /tmp/dev
 curl -sLO https://github.com/openssl/openssl/releases/download/openssl-3.5.6/openssl-3.5.6.tar.gz
 gunzip -c openssl-3.5.6.tar.gz | tar xf -
 cd openssl-3.5.6
-perl Configure aix64-gcc no-shared --prefix=/opt/openssl-psk
+perl Configure aix64-gcc shared --prefix=/opt/openssl-psk
 gmake -j2
 sudo gmake install_sw
+
+# AIX convention: .so members live INSIDE .a archives (see /usr/lib/libssl.a).
+# After install_sw we get .a and .so.3 as separate files; merge the .so
+# into the .a so dump -H and the runtime loader find libssl.a(libssl.so.3).
+cd /opt/openssl-psk/lib
+sudo mv libssl64.so.3 libssl.so.3
+sudo mv libcrypto64.so.3 libcrypto.so.3
+sudo /usr/bin/ar -X64 -q libssl.a libssl.so.3
+sudo /usr/bin/ar -X64 -q libcrypto.a libcrypto.so.3
 ```
 
-`no-shared` keeps the build self-contained — the agent links the
-necessary symbols statically and runtime resolution falls back to the
-system OpenSSL for compatible code paths.
+`shared` is mandatory: the previous `no-shared` build link-resolves
+PSK ciphers from the headers but the runtime falls back to IBM's
+/usr/lib OpenSSL which has `OPENSSL_NO_PSK` set — TLS init then
+aborts with `no cipher match` even when TLSConnect=unencrypted.
+
+Runtime: `LIBPATH=/opt/openssl-psk/lib` MUST precede `/usr/lib` so
+the custom libssl wins over the system one.
 
 ## Build
 
@@ -87,7 +100,7 @@ The binary lands at `src/go/bin/zabbix_agent2` (XCOFF 64-bit, ~47 MB).
 
 ```sh
 export OBJECT_MODE=64
-export LIBPATH=/opt/freeware/bin:/usr/lib
+export LIBPATH=/opt/openssl-psk/lib:/opt/freeware/lib:/opt/oracle/instantclient_19_30:/usr/lib
 
 ./src/go/bin/zabbix_agent2 -V
 ./src/go/bin/zabbix_agent2 -c src/go/conf/zabbix_agent2.conf -t agent.ping
