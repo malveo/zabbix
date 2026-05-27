@@ -27,7 +27,7 @@ Source0:        %{name}-%{version}.tar.gz
 ExclusiveArch:  ppc
 
 BuildRequires:  gcc >= 13
-BuildRequires:  pkgconf
+BuildRequires:  pkg-config
 BuildRequires:  pcre2-devel
 BuildRequires:  make
 
