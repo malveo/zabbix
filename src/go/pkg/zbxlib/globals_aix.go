@@ -88,10 +88,32 @@ char	*zbx_strerror_from_system(zbx_syserror_t error)
 // "Collector is not started." for every system.stat[*] key.
 // We replicate that loop here.
 #include <pthread.h>
+#include <string.h>
 #include <unistd.h>
 #include "stats.h"
 
 extern void collect_vmstat_data(ZBX_VMSTAT_DATA *vmstat);
+
+// Refresh the shared collector's vmstat snapshot without exposing a
+// partially-updated struct to concurrent system_stat() readers.
+// libspecsysinfo.a's system_stat() reads c->vmstat.* fields without
+// any lock; we cannot patch it. Mitigate by collecting into a local
+// staging buffer, then doing a single bulk memcpy back to the shared
+// struct with a memory barrier so neighbouring reads observe either
+// the old snapshot or the new one — never a half-written mix.
+static void refresh_vmstat(zbx_collector_data *c)
+{
+	ZBX_VMSTAT_DATA	staging;
+
+	memcpy(&staging, &c->vmstat, sizeof(staging));
+	staging.enabled = 1;
+	collect_vmstat_data(&staging);
+	staging.data_available = 1;
+
+	__sync_synchronize();			// release: ensure staging writes settle
+	memcpy(&c->vmstat, &staging, sizeof(staging));
+	__sync_synchronize();			// publish: readers see the new snapshot
+}
 
 static void *zbxaix_vmstat_loop(void *arg)
 {
@@ -102,13 +124,7 @@ static void *zbxaix_vmstat_loop(void *arg)
 	{
 		c = get_collector();
 		if (NULL != c)
-		{
-			// enabled flag is what system_stat() flips on first call;
-			// collect unconditionally so data is fresh on first read.
-			c->vmstat.enabled = 1;
-			collect_vmstat_data(&c->vmstat);
-			c->vmstat.data_available = 1;
-		}
+			refresh_vmstat(c);
 		sleep(1);
 	}
 	return NULL;
@@ -129,14 +145,14 @@ int	zbxaix_start_collector(void)
 	// update_vmstat() in vmstats.c only saves a baseline on the first
 	// call and emits deltas on the second. Prime it twice with a 1s
 	// gap so test-mode (single -t invocation) sees non-zero values.
+	// Both refreshes go through the same staging+memcpy path as the
+	// background loop so readers never see a torn snapshot.
 	c = get_collector();
 	if (NULL != c)
 	{
-		c->vmstat.enabled = 1;
-		collect_vmstat_data(&c->vmstat);
+		refresh_vmstat(c);
 		sleep(1);
-		collect_vmstat_data(&c->vmstat);
-		c->vmstat.data_available = 1;
+		refresh_vmstat(c);
 	}
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
