@@ -29,7 +29,7 @@ export PKG_CONFIG_PATH=/opt/freeware/lib/pkgconfig
 # -maix64 is explicit. This must be in CFLAGS (not just CGO_CFLAGS) so
 # that the C-side .a archives are 64-bit and match the Go binary.
 export CFLAGS="-maix64 -O2"
-export LDFLAGS="-maix64 -L/opt/freeware/lib -Wl,-bbigtoc"
+export LDFLAGS="-maix64 -L/opt/openssl-psk/lib -L/opt/freeware/lib -Wl,-bbigtoc"
 
 # CGO needs explicit AIX flags. configure.ac propagates these to Makefile.am
 # but we set them here too for direct go build invocations during development.
