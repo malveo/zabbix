@@ -12,14 +12,17 @@ patches in this branch close the gap.
 | Build                  | Yes (gcc-13.3, libperfstat, custom OpenSSL with PSK) |
 | TLS PSK                | Requires custom OpenSSL build (see below) |
 | TLS certificates       | Yes |
-| Native AIX plugins     | cpu, memory, netif, vfs/dev, vfs/fs, proc, hw, sw, kernel, uname, uptime |
-| C-bridge plugins       | system.localtime, system.boottime, vfs.fs.size, net.tcp.listen, net.udp.listen, system.cpu.load, vm.memory.size (alt path) |
-| Disabled               | oracle (godror), sqlite3 persistent buffer (memcache fallback), systemd, smart |
+| Native AIX plugins     | cpu, memory, netif, vfs/dev, vfs/fs, proc, hw, sw, kernel, uname, uptime, swap |
+| C-bridge plugins       | system.localtime, system.boottime, vfs.fs.size, net.tcp.listen, system.cpu.{load,intr,switches}, vm.memory.size, system.stat[*] (21 sub-keys), system.users.num |
+| Oracle plugin          | Yes (godror cgo via Oracle Instant Client 19.30) |
+| Application plugins    | ceph, memcached, mqtt, mysql, redis (pure Go, no platform glue) |
+| Disabled               | modbus (goburrow/serial lacks AIX), net.udp.listen (raw socket crash), systemd, smart, docker, sqlite3 persistent buffer |
 
 ## Prerequisites
 
-Tested on AIX 7.2 TL5 SP11 (LAB4 reference host); 7.3 expected to work
-identically — see "Validation" below.
+Verified end-to-end on AIX 7.2 TL5 SP11 (LAB4 reference host) and AIX
+7.3 TL3 SP02 (LAB5 reference host). 7.3 needs two extra fix-ups during
+provisioning — see "AIX 7.3 specifics" below.
 
 ### AIX Toolbox packages
 
@@ -27,13 +30,82 @@ Install via `dnf` (set up the AIX Toolbox repository first if not
 present):
 
 ```sh
-dnf install -y gcc make pkgconf pcre2-devel git rsync \
-               autoconf automake libtool m4 perl
+dnf install -y gcc make pkg-config pcre2-devel autoconf automake \
+               libtool m4 perl curl rsync git unzip libzstd
 ```
 
-`gnu-make` ships as `make` once the GNU package is selected by `dnf`;
-the AIX `/usr/bin/make` is unsuitable. The build script prepends
-`/opt/freeware/bin` to PATH so the GNU tools win.
+Notes:
+* On AIX 7.2 the package may be `pkgconf`; on 7.3 it is `pkg-config`.
+* `libzstd` is a gcc-13 transitive dep — without it `cc1` fails at load
+  time with `0509-150 Dependent module libzstd.a(libzstd.so.1) could
+  not be loaded.`
+* `gnu-make` ships as `make` once the GNU package is selected;
+  AIX `/usr/bin/make` is unsuitable. The build script prepends
+  `/opt/freeware/bin` to PATH so the GNU tools win.
+
+## AIX 7.3 specifics
+
+Three fix-ups required on a fresh 7.3 LPAR before any of the steps
+below work:
+
+### 1. `/etc/resolv.conf` is empty
+
+DNS resolution fails silently — `curl` and `dnf` error with
+`Could not resolve host`. Create the file (root) with the CCNO
+nameserver:
+
+```sh
+sudo sh -c 'cat > /etc/resolv.conf <<EOF
+nameserver 10.58.19.34
+domain ccno.coop.it
+EOF'
+```
+
+### 2. `dnf` cannot load `libcrypto.so.3`
+
+The `openssl.base 3.0.16.1000` fileset installs `libcrypto.so.3` only
+as a member of `/usr/lib/libcrypto.a.min`, not `/usr/lib/libcrypto.a`.
+Python-based `dnf` aborts with `0509-152 Member libcrypto.so.3 is not
+found in archive`. Patch both archives (root):
+
+```sh
+cd /tmp
+cp /opt/freeware/lib/libcrypto.a libc.a
+cp /opt/freeware/lib/libssl.a    libs.a
+ar -X64 -x /usr/lib/libcrypto.a.min libcrypto.so.3
+ar -X64 -x /usr/lib/libssl.a        libssl.so.3
+ar -X64 -q libc.a libcrypto.so.3
+ar -X64 -q libs.a libssl.so.3
+slibclean
+cp libc.a /opt/freeware/lib/libcrypto.a
+cp libs.a /opt/freeware/lib/libssl.a
+```
+
+### 3. Legacy `libssl.so.0.9.7` poisons the agent2 binary
+
+After the dnf fix-up above, `/opt/freeware/lib/libssl.a` still carries
+a pre-existing `libssl.so.0.9.7` member alongside `libssl.so.3`. AIX
+ld imports every member of any archive it opens, so the resulting
+agent2 binary has a runtime dep on `libssl.so.0.9.7` that exists
+nowhere — `dump -H` shows both:
+
+```
+5    libssl.a    libssl.so.0.9.7    ← missing at runtime
+6    libssl.a    libssl.so.3
+```
+
+Remove the legacy members before linking (root):
+
+```sh
+cd /tmp
+cp /opt/freeware/lib/libssl.a    libs.a
+cp /opt/freeware/lib/libcrypto.a libc.a
+/usr/bin/ar -X64 -d libs.a libssl.so.0.9.7
+/usr/bin/ar -X64 -d libc.a libcrypto.so.0.9.7
+slibclean
+cp libs.a /opt/freeware/lib/libssl.a
+cp libc.a /opt/freeware/lib/libcrypto.a
+```
 
 ### Go toolchain
 
