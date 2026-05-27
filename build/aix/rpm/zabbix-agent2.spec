@@ -60,13 +60,15 @@ mkdir -p %{buildroot}%{_datadir}/doc
 # Binary — note that build-aix.sh emits to src/go/bin (a file, not a
 # directory) on first run; both names are handled.
 if [ -d src/go/bin ]; then
-    install -m 0755 src/go/bin/zabbix_agent2 %{buildroot}%{_sbindir}/zabbix_agent2
+    cp src/go/bin/zabbix_agent2 %{buildroot}%{_sbindir}/zabbix_agent2
 else
-    install -m 0755 src/go/bin %{buildroot}%{_sbindir}/zabbix_agent2
+    cp src/go/bin %{buildroot}%{_sbindir}/zabbix_agent2
 fi
+chmod 0755 %{buildroot}%{_sbindir}/zabbix_agent2
 
 # Config and plugin templates
-install -m 0644 src/go/conf/zabbix_agent2.conf  %{buildroot}%{_sysconfdir}/zabbix_agent2.conf
+cp src/go/conf/zabbix_agent2.conf  %{buildroot}%{_sysconfdir}/zabbix_agent2.conf
+chmod 0644 %{buildroot}%{_sysconfdir}/zabbix_agent2.conf
 cp -r src/go/conf/zabbix_agent2.d/plugins.d/*   %{buildroot}%{_sysconfdir}/zabbix_agent2.d/plugins.d/ || true
 
 # rc init script — minimal start/stop wrapper using AIX startsrc/stopsrc
@@ -107,8 +109,9 @@ INIT
 chmod 0755 %{buildroot}/etc/rc.d/init.d/zabbix_agent2
 
 # Documentation
-install -m 0644 INSTALL_AIX.md %{buildroot}%{_datadir}/doc/INSTALL_AIX.md
-install -m 0644 ChangeLog       %{buildroot}%{_datadir}/doc/ChangeLog || true
+cp INSTALL_AIX.md %{buildroot}%{_datadir}/doc/INSTALL_AIX.md
+chmod 0644 %{buildroot}%{_datadir}/doc/INSTALL_AIX.md
+cp ChangeLog %{buildroot}%{_datadir}/doc/ChangeLog 2>/dev/null || true
 
 %files
 %defattr(-,root,system,-)
