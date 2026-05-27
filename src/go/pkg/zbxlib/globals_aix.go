@@ -116,14 +116,24 @@ static void *zbxaix_vmstat_loop(void *arg)
 
 int	zbxaix_start_collector(void)
 {
-	char		*err = NULL;
-	pthread_t	t;
-	pthread_attr_t	attr;
+	char			*err = NULL;
+	pthread_t		t;
+	pthread_attr_t		attr;
+	zbx_collector_data	*c;
 
 	if (SUCCEED != zbx_init_collector_data(&err))
 	{
 		if (NULL != err) zbx_free(err);
 		return -1;
+	}
+	// Synchronous first collect so test-mode invocations and daemons
+	// that read immediately after start get values instead of zeros.
+	c = get_collector();
+	if (NULL != c)
+	{
+		c->vmstat.enabled = 1;
+		collect_vmstat_data(&c->vmstat);
+		c->vmstat.data_available = 1;
 	}
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
