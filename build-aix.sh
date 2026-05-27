@@ -24,6 +24,14 @@
 #
 set -euo pipefail
 
+# AIX ar/ld read OBJECT_MODE from env, before configure can export it.
+# Force 64-bit so .a archives produced by sub-makes are valid for the
+# linker. AR=-X64 is set inside configure.ac but only after configure
+# starts; pre-configure recursive makes (eg. from `gmake clean`) need
+# the env directly.
+export OBJECT_MODE=64
+export AR="/usr/bin/ar -X64"
+
 # GNU tools first, Go toolchain reachable.
 export PATH=/opt/freeware/bin:/tmp/dev/go/bin:/usr/bin:/usr/sbin:$PATH
 export PKG_CONFIG_PATH=/opt/freeware/lib/pkgconfig
