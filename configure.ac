@@ -1228,10 +1228,6 @@ aix*)
 	dnl Workaround AR Internal error 0707-106 — force 64-bit object mode
 	AR="${AR:-/usr/bin/ar} -X64"
 	export OBJECT_MODE=64
-	dnl Force 64-bit code generation; AIX gcc defaults to 32-bit XCOFF
-	dnl which mismatches OBJECT_MODE=64 and produces "size of void * = 4"
-	dnl during configure feature tests.
-	CFLAGS="${CFLAGS} -maix64"
 	dnl Custom OpenSSL with PSK (IBM /usr/lib ships OPENSSL_NO_PSK).
 	dnl Override via configure --with-openssl=/opt/openssl-psk (default).
 	OPENSSL_PREFIX_AIX="${OPENSSL_PREFIX_AIX:-/opt/openssl-psk}"

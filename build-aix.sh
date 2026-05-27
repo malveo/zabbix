@@ -32,6 +32,14 @@ set -euo pipefail
 export OBJECT_MODE=64
 export AR="/usr/bin/ar -X64"
 
+# AIX gcc defaults to 32-bit XCOFF. Force 64-bit at the global CFLAGS
+# layer so autoconf feature tests (AC_CHECK_SIZEOF, etc.) see a
+# consistent ABI. We set CFLAGS here rather than from configure.ac
+# because Autoconf otherwise appends framework -I flags that pull
+# /opt/freeware's gcc include-fixed/stdio.h, conflicting with AIX
+# system stdio.h declarations for fgetpos64 / fseeko64 family.
+export CFLAGS="-maix64 -O2"
+
 # GNU tools first, Go toolchain reachable.
 export PATH=/opt/freeware/bin:/tmp/dev/go/bin:/usr/bin:/usr/sbin:$PATH
 export PKG_CONFIG_PATH=/opt/freeware/lib/pkgconfig
